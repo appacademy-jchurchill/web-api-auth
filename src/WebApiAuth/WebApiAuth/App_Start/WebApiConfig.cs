@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web.Http;
+using WebApiAuth.MessageHandlers;
 
 namespace WebApiAuth
 {
@@ -10,6 +11,9 @@ namespace WebApiAuth
         public static void Register(HttpConfiguration config)
         {
             // Web API configuration and services
+
+            // Add custom message handlers
+            config.MessageHandlers.Add(new BasicAuthHandler());
 
             // Web API routes
             config.MapHttpAttributeRoutes();
