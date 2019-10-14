@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Web.Http.Filters;
 using WebApiAuth.Results;
+using WebApiAuth.Security;
 
 namespace WebApiAuth.Filters
 {
@@ -41,19 +42,17 @@ namespace WebApiAuth.Filters
                 return;
             }
 
-            Tuple<string, string> usernameAndPasword = ExtractUsernameAndPassword(authorization.Parameter);
+            var credentials = BasicAuthentication.ExtractUsernameAndPassword(authorization.Parameter);
 
-            if (usernameAndPasword == null)
+            if (credentials == null)
             {
                 // Authentication was attempted but failed. Set ErrorResult to indicate an error.
                 context.ErrorResult = new AuthenticationFailureResult("Invalid credentials", request);
                 return;
             }
 
-            string username = usernameAndPasword.Item1;
-            string password = usernameAndPasword.Item2;
-
-            IPrincipal principal = await AuthenticateAsync(username, password, cancellationToken);
+            IPrincipal principal = await AuthenticateAsync(
+                credentials.Username, credentials.Password, cancellationToken);
 
             if (principal == null)
             {
@@ -65,56 +64,6 @@ namespace WebApiAuth.Filters
                 // Authentication was attempted and succeeded. Set Principal to the authenticated user.
                 context.Principal = principal;
             }
-        }
-
-        private static Tuple<string, string> ExtractUsernameAndPassword(string authorizationParameter)
-        {
-            byte[] credentialBytes;
-
-            try
-            {
-                credentialBytes = Convert.FromBase64String(authorizationParameter);
-            }
-            catch (FormatException)
-            {
-                return null;
-            }
-
-            // The currently approved HTTP 1.1 specification says characters here are ISO-8859-1.
-            // However, the current draft updated specification for HTTP 1.1 indicates this encoding is infrequently
-            // used in practice and defines behavior only for ASCII.
-            Encoding encoding = Encoding.ASCII;
-            // Make a writable copy of the encoding to enable setting a decoder fallback.
-            encoding = (Encoding)encoding.Clone();
-            // Fail on invalid bytes rather than silently replacing and continuing.
-            encoding.DecoderFallback = DecoderFallback.ExceptionFallback;
-            string decodedCredentials;
-
-            try
-            {
-                decodedCredentials = encoding.GetString(credentialBytes);
-            }
-            catch (DecoderFallbackException)
-            {
-                return null;
-            }
-
-            if (string.IsNullOrEmpty(decodedCredentials))
-            {
-                return null;
-            }
-
-            int colonIndex = decodedCredentials.IndexOf(':');
-
-            if (colonIndex == -1)
-            {
-                return null;
-            }
-
-            string username = decodedCredentials.Substring(0, colonIndex);
-            string password = decodedCredentials.Substring(colonIndex + 1);
-
-            return new Tuple<string, string>(username, password);
         }
 
         protected Task<IPrincipal> AuthenticateAsync(string username, string password,
@@ -133,12 +82,6 @@ namespace WebApiAuth.Filters
 
         public Task ChallengeAsync(HttpAuthenticationChallengeContext context, CancellationToken cancellationToken)
         {
-            Challenge(context);
-            return Task.FromResult(0);
-        }
-
-        private void Challenge(HttpAuthenticationChallengeContext context)
-        {
             string parameter;
 
             if (string.IsNullOrEmpty(Realm))
@@ -154,6 +97,8 @@ namespace WebApiAuth.Filters
 
             context.Result = new AddChallengeOnUnauthorizedResult(
                 new AuthenticationHeaderValue("Basic", parameter), context.Result);
+
+            return Task.FromResult(0);
         }
     }
 }
