@@ -15,8 +15,6 @@ namespace WebApiAuth.Security
         public string Password { get; set; }
     }
 
-
-
     public static class BasicAuthentication
     {
         public static BasicAuthenticationCredentials ExtractUsernameAndPassword(string authorizationParameter)
