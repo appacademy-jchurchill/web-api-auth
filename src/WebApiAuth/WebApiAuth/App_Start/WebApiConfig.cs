@@ -11,6 +11,9 @@ namespace WebApiAuth
         {
             // Web API configuration and services
 
+            // Suppress any principal set by the host
+            config.SuppressHostPrincipal();
+
             // Web API routes
             config.MapHttpAttributeRoutes();
 
