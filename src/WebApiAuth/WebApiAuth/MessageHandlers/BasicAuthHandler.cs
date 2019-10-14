@@ -10,6 +10,8 @@ namespace WebApiAuth.MessageHandlers
 {
     public class BasicAuthHandler : DelegatingHandler
     {
+        private const string Realm = "";
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -18,7 +20,22 @@ namespace WebApiAuth.MessageHandlers
             if (!result)
             {
                 var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
-                response.Headers.WwwAuthenticate.Add(new System.Net.Http.Headers.AuthenticationHeaderValue("basic"));
+
+                string parameter;
+
+                if (string.IsNullOrEmpty(Realm))
+                {
+                    parameter = null;
+                }
+                else
+                {
+                    // A correct implementation should verify that Realm does not contain a quote character unless properly
+                    // escaped (precededed by a backslash that is not itself escaped).
+                    parameter = "realm=\"" + Realm + "\"";
+                }
+
+                response.Headers.WwwAuthenticate.Add(new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", parameter));
+
                 return response;
             }
 
