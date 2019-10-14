@@ -2,30 +2,30 @@
 using System.Net;
 using System.Net.Http;
 using System.Security.Principal;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using WebApiAuth.Security;
 
 namespace WebApiAuth.MessageHandlers
 {
     public class BasicAuthHandler : DelegatingHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            if (!ValidateAuthorizationHeader(request))
+            bool result = await ValidateAuthorizationHeader(request, cancellationToken);
+
+            if (!result)
             {
                 var response = new HttpResponseMessage(HttpStatusCode.Unauthorized);
                 response.Headers.WwwAuthenticate.Add(new System.Net.Http.Headers.AuthenticationHeaderValue("basic"));
-                var tsc = new TaskCompletionSource<HttpResponseMessage>();
-                tsc.SetResult(response);
-                return tsc.Task;
+                return response;
             }
 
-            return base.SendAsync(request, cancellationToken);
+            return await base.SendAsync(request, cancellationToken);
         }
 
-        private bool ValidateAuthorizationHeader(HttpRequestMessage message)
+        private async Task<bool> ValidateAuthorizationHeader(HttpRequestMessage message, CancellationToken cancellationToken)
         {
             var authorizationHeader = message.Headers.Authorization;
 
@@ -38,49 +38,24 @@ namespace WebApiAuth.MessageHandlers
                 authorizationHeader.Scheme.Equals("basic", StringComparison.OrdinalIgnoreCase) && 
                 authorizationHeader.Parameter != null)
             {
-                string username = null;
-                if (AuthenticateUser(authorizationHeader.Parameter, out username))
+                var credentials = BasicAuthentication.ExtractUsernameAndPassword(authorizationHeader.Parameter);
+
+                if (credentials != null)
                 {
-                    var identity = new GenericIdentity(username);
-                    var principal = new GenericPrincipal(identity, null);
+                    IPrincipal principal = await BasicAuthentication.AuthenticateAsync(
+                        credentials.Username, credentials.Password, cancellationToken);
 
-                    var context = message.GetRequestContext();
-                    context.Principal = principal;
+                    if (principal != null)
+                    {
+                        var context = message.GetRequestContext();
+                        context.Principal = principal;
 
-                    return true;
+                        return true;
+                    }
                 }
             }
 
             return false;
-        }
-
-        private bool AuthenticateUser(string base64EncodedCredentials, out string returnUsername)
-        {
-            returnUsername = null;
-
-            try
-            {
-                Encoding encoding = Encoding.GetEncoding("iso-8859-1");
-                string credentials = encoding.GetString(Convert.FromBase64String(base64EncodedCredentials));
-
-                int separator = credentials.IndexOf(':');
-                string username = credentials.Substring(0, separator);
-                string password = credentials.Substring(separator + 1);
-
-                if (CheckUsernameAndPassword(username, password))
-                {
-                    returnUsername = username;
-                    return true;
-                }
-            }
-            catch (FormatException) { }
-
-            return false;
-        }
-
-        private static bool CheckUsernameAndPassword(string username, string password)
-        {
-            return username == "user" && password == "password";
         }
     }
 }
