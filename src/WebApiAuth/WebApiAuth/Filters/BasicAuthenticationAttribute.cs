@@ -51,7 +51,7 @@ namespace WebApiAuth.Filters
                 return;
             }
 
-            IPrincipal principal = await AuthenticateAsync(
+            IPrincipal principal = await BasicAuthentication.AuthenticateAsync(
                 credentials.Username, credentials.Password, cancellationToken);
 
             if (principal == null)
@@ -64,20 +64,6 @@ namespace WebApiAuth.Filters
                 // Authentication was attempted and succeeded. Set Principal to the authenticated user.
                 context.Principal = principal;
             }
-        }
-
-        protected Task<IPrincipal> AuthenticateAsync(string username, string password,
-            CancellationToken cancellationToken)
-        {
-            if (username != "user" || password != "password")
-            {
-                return Task.FromResult<IPrincipal>(null);
-            }
-
-            var identity = new GenericIdentity(username);
-            var principal = new GenericPrincipal(identity, null);
-
-            return Task.FromResult<IPrincipal>(principal);
         }
 
         public Task ChallengeAsync(HttpAuthenticationChallengeContext context, CancellationToken cancellationToken)

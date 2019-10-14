@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Principal;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
 
 namespace WebApiAuth.Security
@@ -11,6 +14,8 @@ namespace WebApiAuth.Security
         public string Username { get; set; }
         public string Password { get; set; }
     }
+
+
 
     public static class BasicAuthentication
     {
@@ -66,6 +71,22 @@ namespace WebApiAuth.Security
                 Username = username,
                 Password = password
             };
+        }
+
+        public static Task<IPrincipal> AuthenticateAsync(string username, string password,
+            CancellationToken cancellationToken)
+        {
+            // TODO Retrieve the user from the database using their username
+            // and validate that the stored password matches the provided password.
+            if (username != "user" || password != "password")
+            {
+                return Task.FromResult<IPrincipal>(null);
+            }
+
+            var identity = new GenericIdentity(username);
+            var principal = new GenericPrincipal(identity, null);
+
+            return Task.FromResult<IPrincipal>(principal);
         }
     }
 }
